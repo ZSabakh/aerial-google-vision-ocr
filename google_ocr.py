@@ -3,36 +3,42 @@ from google.cloud import storage
 from google.cloud import vision
 import os
 
-bucket_name = 'atu-ocr'
-
 
 def main():
+    # Initializing Google Cloud Storage bucket
+    bucket_name = 'atu-ocr'
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(bucket_name)
+    if not bucket.exists():
+        bucket = storage_client.create_bucket(bucket_name)
+    else:
+        bucket = storage_client.get_bucket(bucket.name)
+
+    # Iterating over files in "data" folder
     for file_name in os.listdir('data'):
         try:
             file_name = os.path.join('data', file_name)
             print("Processing: " + file_name)
             img = cv2.imread(file_name)
+            # Cropping out right label area and left label area as separate pictures.
             left_label_img, right_label_img = get_labels(img)
             cv2.imwrite('left_label.jpg', left_label_img)
             cv2.imwrite('right_label.jpg', right_label_img)
 
-            # Initializing Google Cloud Storage bucket
-            storage_client = storage.Client()
-            bucket = storage_client.get_bucket(bucket_name)
-            if bucket is None:
-                bucket = storage_client.create_bucket(bucket_name)
-
+            # Uploading temporary cropped out pictures to Google Cloud Storage for further processing.
             blob = bucket.blob("left_label.jpg")
             blob.upload_from_filename("left_label.jpg")
             blob = bucket.blob("right_label.jpg")
             blob.upload_from_filename("right_label.jpg")
             left_label_gs_uri, right_label_gs_uri = 'gs://' + bucket_name + '/left_label.jpg', 'gs://' + bucket_name + '/right_label.jpg'
 
+            # Running Google Cloud Vision OCR API to extract text from two labels.
             left_label_text, right_label_text = detect_text_uri(left_label_gs_uri), detect_text_uri(right_label_gs_uri)
             right_label_text = validate_right_label(right_label_text)
             print("Left label: " + left_label_text)
             print("Right label: " + right_label_text + '\n')
 
+            # Renaming original files with extracted labels.
             old_file_name = file_name
             file_name = left_label_text + " && " + right_label_text + "." + file_name.split('.')[1]
             os.rename(old_file_name, os.path.join('data', file_name))
