@@ -15,9 +15,9 @@ def main():
         bucket = storage_client.get_bucket(bucket.name)
 
     # Iterating over files in "data" folder
-    for file_name in os.listdir('data'):
+    for file_name in os.listdir('input'):
         try:
-            file_name = os.path.join('data', file_name)
+            file_name = os.path.join('input', file_name)
             print("Processing: " + file_name)
             img = cv2.imread(file_name)
             # Cropping out right label area and left label area as separate pictures.
@@ -39,11 +39,9 @@ def main():
             print("Right label: " + right_label_text + '\n')
 
             # Renaming original files with extracted labels.
-            old_file_name = file_name
             file_name = left_label_text + " && " + right_label_text + "." + file_name.split('.')[1]
-            os.rename(old_file_name, os.path.join('data', file_name))
-            os.remove('left_label.jpg')
-            os.remove('right_label.jpg')
+            # Saving file to output folder
+            cv2.imwrite(os.path.join('output', file_name), img)
         except Exception as e:
             print("Error processing: " + file_name)
             print(e)
